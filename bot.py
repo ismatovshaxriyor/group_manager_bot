@@ -79,10 +79,11 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     )
 
     try:
-        from config import ADMIN_ID
-        await context.bot.send_message(
-            chat_id=ADMIN_ID, text=message, parse_mode="HTML"
-        )
+        from config import ADMIN_IDS
+        for admin_id in ADMIN_IDS:
+            await context.bot.send_message(
+                chat_id=admin_id, text=message, parse_mode="HTML"
+            )
     except Exception:
         logger.error("Failed to send error message to admin.")
 

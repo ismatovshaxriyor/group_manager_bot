@@ -14,7 +14,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from config import ADMIN_ID, MONTHLY_PRICE
+from config import ADMIN_IDS, MONTHLY_PRICE
 from database import User, Payment, Subscription, Card, Channel
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show admin panel with inline buttons."""
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.id not in ADMIN_IDS:
         return
 
     await _show_admin_menu(update.message.reply_text)
@@ -61,7 +61,7 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle admin panel inline button presses."""
     query = update.callback_query
 
-    if query.from_user.id != ADMIN_ID:
+    if query.from_user.id not in ADMIN_IDS:
         return
 
     await query.answer()

@@ -18,7 +18,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from config import ADMIN_ID, MONTHLY_PRICE
+from config import ADMIN_IDS, MONTHLY_PRICE
 from database import User, Payment, Card
 
 logger = logging.getLogger(__name__)
@@ -156,13 +156,14 @@ async def ask_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     )
 
-    await context.bot.send_photo(
-        chat_id=ADMIN_ID,
-        photo=file_id,
-        caption=admin_text,
-        parse_mode="HTML",
-        reply_markup=keyboard,
-    )
+    for admin_id in ADMIN_IDS:
+        await context.bot.send_photo(
+            chat_id=admin_id,
+            photo=file_id,
+            caption=admin_text,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
 
     await update.message.reply_text(
         "✅ Chek qabul qilindi!\n\n"

@@ -6,7 +6,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackQueryHandler, ContextTypes
 
-from config import ADMIN_ID
+from config import ADMIN_IDS
 from database import Payment, Subscription, User, Channel
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ async def handle_payment_decision(update: Update, context: ContextTypes.DEFAULT_
     query = update.callback_query
     await query.answer()
 
-    if query.from_user.id != ADMIN_ID:
+    if query.from_user.id not in ADMIN_IDS:
         await query.answer("⛔ Sizda ruxsat yo'q!", show_alert=True)
         return
 
@@ -108,10 +108,11 @@ async def handle_payment_decision(update: Update, context: ContextTypes.DEFAULT_
             )
         except Exception as e:
             logger.error(f"Failed to send invite to user {user.telegram_id}: {e}")
-            await context.bot.send_message(
-                chat_id=ADMIN_ID,
-                text=f"⚠️ Userga ({user.telegram_id}) havola yuborishda xato: {e}",
-            )
+            for admin_id in ADMIN_IDS:
+                await context.bot.send_message(
+                    chat_id=admin_id,
+                    text=f"⚠️ Userga ({user.telegram_id}) havola yuborishda xato: {e}",
+                )
 
     elif action == "reject":
         payment.status = "rejected"
