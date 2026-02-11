@@ -24,28 +24,24 @@ from database import User, Payment, Card
 logger = logging.getLogger(__name__)
 
 # Conversation states
-ASK_FIRST_NAME, ASK_LAST_NAME, ASK_PHONE, ASK_RECEIPT = range(4)
+ASK_FULLNAME, ASK_PHONE, ASK_RECEIPT = range(3)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Entry point — /start command."""
     await update.message.reply_text(
         "👋 Assalomu alaykum! Ro'yxatdan o'tish uchun ma'lumotlaringizni kiriting.\n\n"
-        "📝 Ismingizni kiriting:"
+        "📝 Ism va familiyangizni kiriting:"
     )
-    return ASK_FIRST_NAME
+    return ASK_FULLNAME
 
 
-async def ask_first_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Save first name, ask for last name."""
-    context.user_data["first_name"] = update.message.text.strip()
-    await update.message.reply_text("📝 Familiyangizni kiriting:")
-    return ASK_LAST_NAME
-
-
-async def ask_last_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Save last name, ask for phone number."""
-    context.user_data["last_name"] = update.message.text.strip()
+async def ask_fullname(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Save full name, ask for phone number."""
+    text = update.message.text.strip()
+    parts = text.split(maxsplit=1)
+    context.user_data["first_name"] = parts[0]
+    context.user_data["last_name"] = parts[1] if len(parts) > 1 else ""
 
     keyboard = ReplyKeyboardMarkup(
         [[KeyboardButton("📱 Telefon raqamni yuborish", request_contact=True)]],
@@ -189,11 +185,8 @@ def get_registration_handler() -> ConversationHandler:
     return ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            ASK_FIRST_NAME: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_first_name)
-            ],
-            ASK_LAST_NAME: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_last_name)
+            ASK_FULLNAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ask_fullname)
             ],
             ASK_PHONE: [
                 MessageHandler(filters.CONTACT | (filters.TEXT & ~filters.COMMAND), ask_phone)
