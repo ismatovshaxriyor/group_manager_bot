@@ -34,9 +34,18 @@ async def handle_payment_decision(update: Update, context: ContextTypes.DEFAULT_
         return
 
     if payment.status != "pending":
+        status_text = "✅ TASDIQLANGAN" if payment.status == "approved" else "❌ RAD ETILGAN"
         await query.answer(
-            f"Bu to'lov allaqachon {payment.status} qilingan.", show_alert=True
+            f"Bu to'lov allaqachon {status_text.lower()}.", show_alert=True
         )
+        # Remove buttons from this admin's message too
+        try:
+            await query.edit_message_caption(
+                caption=query.message.caption + f"\n\n{status_text} (boshqa admin tomonidan)",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
         return
 
     user = payment.user
