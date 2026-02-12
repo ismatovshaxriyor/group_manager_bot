@@ -34,7 +34,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     # ── Register handlers ──
-    # Registration conversation (must be first so /start works)
+    # Registration conversation + menu
     app.add_handler(get_registration_handler(), group=0)
 
     # Admin handlers (conversation for add_card/add_channel + callbacks)
@@ -52,7 +52,7 @@ def main():
     # Run every day at 09:00 (UTC+5)
     job_queue.run_daily(
         check_subscriptions,
-        time=datetime.time(hour=4, minute=0, second=0),  # 09:00 UTC+5 = 04:00 UTC
+        time=datetime.time(hour=0, minute=0, second=0),  # 05:00 UTC+5 = 00:00 UTC
         name="subscription_check",
     )
     # Also run once on startup (after 10 seconds)

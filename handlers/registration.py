@@ -1,5 +1,7 @@
-"""Registration conversation handler — collects name, surname, phone, and payment receipt."""
+"""Registration handler — welcome menu, subscription flow, status, and support."""
 
+import os
+import datetime
 import logging
 
 from telegram import (
@@ -19,22 +21,84 @@ from telegram.ext import (
 )
 
 from config import ADMIN_IDS, MONTHLY_PRICE
-from database import User, Payment, Card
+from database import User, Payment, Card, Subscription
 
 logger = logging.getLogger(__name__)
 
 # Conversation states
-ASK_FULLNAME, ASK_PHONE, ASK_RECEIPT = range(3)
+MENU, ASK_FULLNAME, ASK_PHONE, ASK_RECEIPT = range(4)
 
+# Button labels
+BTN_JOIN = "🎓 Kursga qo'shilish"
+BTN_STATUS = "🗂 Obuna holati"
+BTN_HELP = "📞 Yordam"
+
+# Path to welcome image
+WELCOME_IMAGE = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                              "telegram-cloud-photo-size-2-5217762099705091210-y.jpg")
+
+
+# ─── Main menu keyboard ─────────────────────────────────────────
+
+def _main_menu_keyboard():
+    return ReplyKeyboardMarkup(
+        [
+            [KeyboardButton(BTN_JOIN)],
+            [KeyboardButton(BTN_STATUS)],
+            [KeyboardButton(BTN_HELP)],
+        ],
+        resize_keyboard=True,
+    )
+
+
+# ─── /start ──────────────────────────────────────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Entry point — /start command."""
-    await update.message.reply_text(
-        "👋 Assalomu alaykum! Ro'yxatdan o'tish uchun ma'lumotlaringizni kiriting.\n\n"
-        "📝 Ism va familiyangizni kiriting:"
+    """Entry point — /start command. Send welcome image with menu."""
+    keyboard = _main_menu_keyboard()
+    caption = (
+        "Assalomu alaykum! 🎓  Kursga obuna bo'ling va yopiq guruhga qo'shiling.\n\n"
+        "Kerakli bo'limni pastdagi menyudan tanlang 👇"
     )
-    return ASK_FULLNAME
 
+    try:
+        with open(WELCOME_IMAGE, "rb") as photo:
+            await update.message.reply_photo(
+                photo=photo,
+                caption=caption,
+                reply_markup=keyboard,
+            )
+    except FileNotFoundError:
+        await update.message.reply_text(caption, reply_markup=keyboard)
+
+    return MENU
+
+
+# ─── Menu handler ────────────────────────────────────────────────
+
+async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle main menu button presses."""
+    text = update.message.text
+
+    if text == BTN_JOIN:
+        await update.message.reply_text(
+            "🎓 <b>Kursga qo'shilish</b>\n\n"
+            "📝 Ism-familiyangizni yuboring (masalan: Akmal Akbarov).",
+            parse_mode="HTML",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return ASK_FULLNAME
+
+    elif text == BTN_STATUS:
+        await _show_subscription_status(update)
+        return MENU
+
+    elif text == BTN_HELP:
+        await _show_help(update)
+        return MENU
+
+
+# ─── Kursga qo'shilish (registration flow) ──────────────────────
 
 async def ask_fullname(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Save full name, ask for phone number."""
@@ -70,9 +134,9 @@ async def ask_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not cards:
         await update.message.reply_text(
             "⚠️ Hozircha to'lov kartasi qo'shilmagan. Iltimos, keyinroq urinib ko'ring.",
-            reply_markup=ReplyKeyboardRemove(),
+            reply_markup=_main_menu_keyboard(),
         )
-        return ConversationHandler.END
+        return MENU
 
     card_text = ""
     for card in cards:
@@ -134,8 +198,7 @@ async def ask_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     price_formatted = f"{MONTHLY_PRICE:,}".replace(",", " ")
     admin_text = (
         f"🆕 <b>Yangi to'lov!</b>\n\n"
-        f"👤 Ism: {first_name}\n"
-        f"👤 Familiya: {last_name}\n"
+        f"👤 Ism: {first_name} {last_name}\n"
         f"📱 Telefon: {phone}\n"
         f"🆔 Username: @{username or 'yo`q'}\n"
         f"🆔 Telegram ID: <code>{telegram_id}</code>\n"
@@ -168,24 +231,100 @@ async def ask_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "✅ Chek qabul qilindi!\n\n"
         "⏳ Admin tekshirmoqda. Iltimos, kuting...",
+        reply_markup=_main_menu_keyboard(),
     )
-    return ConversationHandler.END
+    return MENU
 
+
+# ─── Obuna holati ────────────────────────────────────────────────
+
+async def _show_subscription_status(update):
+    """Show user's subscription status."""
+    telegram_id = update.effective_user.id
+
+    try:
+        user = User.get(User.telegram_id == telegram_id)
+    except User.DoesNotExist:
+        await update.message.reply_text(
+            "🗂 <b>Obuna holati</b>\n\n"
+            "❌ Siz hali ro'yxatdan o'tmagansiz.\n\n"
+            "\"Kursga qo'shilish\" tugmasini bosing.",
+            parse_mode="HTML",
+        )
+        return
+
+    # Check active subscription
+    sub = (
+        Subscription.select()
+        .where((Subscription.user == user) & (Subscription.is_active == True))
+        .first()
+    )
+
+    if sub:
+        days_left = (sub.end_date - datetime.datetime.now()).days
+        text = (
+            f"🗂 <b>Obuna holati</b>\n\n"
+            f"👤 {user.first_name} {user.last_name}\n"
+            f"📱 {user.phone}\n\n"
+            f"✅ <b>Obuna faol</b>\n"
+            f"📅 Tugash sanasi: {sub.end_date:%d.%m.%Y}\n"
+            f"⏳ Qolgan kunlar: <b>{max(days_left, 0)} kun</b>"
+        )
+    else:
+        text = (
+            f"🗂 <b>Obuna holati</b>\n\n"
+            f"👤 {user.first_name} {user.last_name}\n"
+            f"📱 {user.phone}\n\n"
+            f"❌ <b>Aktiv obuna yo'q</b>\n\n"
+            f"Obunani yangilash uchun \"Kursga qo'shilish\" tugmasini bosing."
+        )
+
+    await update.message.reply_text(text, parse_mode="HTML")
+
+
+# ─── Yordam ──────────────────────────────────────────────────────
+
+async def _show_help(update):
+    """Show support contact info."""
+    support_contact = os.getenv("SUPPORT_CONTACT", "Admin")
+    support_phone = os.getenv("SUPPORT_PHONE", "")
+
+    text = (
+        f"📞 <b>Yordam</b>\n\n"
+        f"Savollar yoki muammolar bo'lsa, quyidagi kontakt orqali bog'laning:\n\n"
+        f"👤 {support_contact}"
+    )
+    if support_phone:
+        text += f"\n📱 {support_phone}"
+
+    await update.message.reply_text(text, parse_mode="HTML")
+
+
+# ─── Cancel ──────────────────────────────────────────────────────
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Cancel the conversation."""
     await update.message.reply_text(
-        "❌ Bekor qilindi. Qaytadan boshlash uchun /start bosing.",
-        reply_markup=ReplyKeyboardRemove(),
+        "❌ Bekor qilindi.",
+        reply_markup=_main_menu_keyboard(),
     )
-    return ConversationHandler.END
+    return MENU
 
 
-def get_registration_handler() -> ConversationHandler:
+# ─── Build handlers ─────────────────────────────────────────────
+
+def get_registration_handler():
     """Build and return the registration ConversationHandler."""
-    return ConversationHandler(
+    menu_filter = filters.Regex(
+        f"^({BTN_JOIN}|{BTN_STATUS}|{BTN_HELP})$"
+    )
+
+    conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
+            MENU: [
+                MessageHandler(menu_filter, handle_menu),
+            ],
             ASK_FULLNAME: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ask_fullname)
             ],
@@ -202,6 +341,8 @@ def get_registration_handler() -> ConversationHandler:
                 ),
             ],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
         allow_reentry=True,
     )
+
+    return conv
