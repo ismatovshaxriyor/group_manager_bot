@@ -34,8 +34,11 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     # ── Register handlers ──
-    # Registration conversation + menu
-    app.add_handler(get_registration_handler(), group=0)
+    # Registration conversation + standalone menu button handlers
+    reg_conv, status_handler, help_handler = get_registration_handler()
+    app.add_handler(reg_conv, group=0)
+    app.add_handler(status_handler, group=0)
+    app.add_handler(help_handler, group=0)
 
     # Admin handlers (conversation for add_card/add_channel + callbacks)
     for handler in get_admin_handlers():
