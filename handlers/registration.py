@@ -219,13 +219,16 @@ async def ask_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     for admin_id in ADMIN_IDS:
-        await context.bot.send_photo(
-            chat_id=admin_id,
-            photo=file_id,
-            caption=admin_text,
-            parse_mode="HTML",
-            reply_markup=keyboard,
-        )
+        try:
+            await context.bot.send_photo(
+                chat_id=admin_id,
+                photo=file_id,
+                caption=admin_text,
+                parse_mode="HTML",
+                reply_markup=keyboard,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send receipt to admin {admin_id}: {e}")
 
     await update.message.reply_text(
         "✅ Chek qabul qilindi!\n\n"
