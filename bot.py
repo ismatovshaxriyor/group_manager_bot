@@ -70,6 +70,12 @@ def main():
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     """Log errors and notify admin."""
+    # Skip transient network errors
+    from telegram.error import NetworkError, TimedOut, RetryAfter
+    if isinstance(context.error, (NetworkError, TimedOut, RetryAfter)):
+        logger.warning("Network error (skipped): %s", context.error)
+        return
+
     logger.error("Exception while handling an update:", exc_info=context.error)
 
     tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
