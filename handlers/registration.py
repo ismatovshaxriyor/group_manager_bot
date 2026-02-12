@@ -34,8 +34,7 @@ BTN_STATUS = "🗂 Obuna holati"
 BTN_HELP = "📞 Yordam"
 
 # Path to welcome image
-WELCOME_IMAGE = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                              "telegram-cloud-photo-size-2-5217762099705091210-y.jpg")
+WELCOME_IMAGE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "welcome.jpg")
 
 
 # ─── Main menu keyboard ─────────────────────────────────────────
